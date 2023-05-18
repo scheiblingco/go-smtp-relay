@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
 )
 
@@ -85,7 +86,20 @@ func (s *Session) SendMail() error {
 		}
 	}
 
+	if remote.Config.AuthPlain {
+		auth := sasl.NewPlainClient("", remote.Config.Username, remote.Config.Password)
+		if err := c.Auth(auth); err != nil {
+			return err
+		}
+	} else if remote.Config.AuthLogin {
+		auth := sasl.NewLoginClient(remote.Config.Username, remote.Config.Password)
+		if err := c.Auth(auth); err != nil {
+			return err
+		}
+	}
+
 	err = c.SendMail(s.FEmail.From, s.FEmail.To, reader)
+
 	if err != nil {
 		return err
 	}
