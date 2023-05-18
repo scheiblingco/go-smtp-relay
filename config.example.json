@@ -1,0 +1,32 @@
+{
+    "server": {
+        "host": "smtp.example.com",
+        "listen": ":2525",
+        "allowInsecure": true,
+        "readTimeout": 10,
+        "writeTimeout": 10,
+        "maxRecipients": 100,
+        "maxMessageSizeMb": 30,
+        "credentials": {
+            "all": {
+                "password": "all",
+                "allowedDomains": []
+            },
+            "specific": {
+                "password": "specific",
+                "allowedDomains": [
+                    "example.com"
+                ]
+            }
+        }
+    },
+    "remote": {
+        "host": "mail.provider.com",
+        "port": "25",
+        "startTls": true,
+        "username": "",
+        "password": "",
+        "authPlain": false,
+        "authLogin": false
+    }
+}

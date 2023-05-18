@@ -1,0 +1,47 @@
+name: build
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - 
+        name: Checkout
+        uses: actions/checkout@v2
+      - 
+        name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+      - 
+        name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - 
+        name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: scheiblingco
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - 
+        name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - 
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/scheiblingco/ghcr-test:latest
+            ghcr.io/scheiblingco/ghcr-test:0.5.0
+            docker.io/scheibling/ghcr-test:latest
+            docker.io/scheibling/ghcr-test:0.5.0
+
+      
