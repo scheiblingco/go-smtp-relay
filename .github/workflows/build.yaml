@@ -3,6 +3,9 @@ on:
   push:
     branches: ["main"]
 
+env:
+  PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,8 +31,8 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: scheibling
+          password: ${{ env.PASSWORD }}
       - 
         name: Build and push
         uses: docker/build-push-action@v2
@@ -39,9 +42,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/scheiblingco/ghcr-test:latest
-            ghcr.io/scheiblingco/ghcr-test:0.5.0
-            docker.io/scheibling/ghcr-test:latest
-            docker.io/scheibling/ghcr-test:0.5.0
+            ghcr.io/scheiblingco/smtp-relay:latest
+            ghcr.io/scheiblingco/smtp-relay:0.5.0
+            docker.io/scheibling/smtp-relay:latest
+            docker.io/scheibling/smtp-relay:0.5.0
 
       
