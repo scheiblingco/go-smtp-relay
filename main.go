@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-sasl"
@@ -132,8 +134,10 @@ func sliceContains(s []string, e string) bool {
 func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 	log.Println("Mail from:", from)
 	if len(s.FEmail.Credential.AllowedDomains) > 0 {
-		if !sliceContains(s.FEmail.Credential.AllowedDomains, from) {
-			return errors.New("invalid sender domain: not allowed")
+		splt := strings.Split(from, "@")
+		if !sliceContains(s.FEmail.Credential.AllowedDomains, splt[1]) {
+			allowstr := strings.Join(s.FEmail.Credential.AllowedDomains, ", ")
+			return fmt.Errorf("invalid sender domain: %s not allowed (%s)", splt[1], allowstr)
 		}
 	}
 	s.FEmail.From = from

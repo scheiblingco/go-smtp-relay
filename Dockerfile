@@ -8,13 +8,11 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o smtp-relay .
 
-FROM alpine
+FROM scratch
 
-WORKDIR /app
-
-COPY --from=builder /build/smtp-relay .
-COPY --from=builder /build/config.example.json .
+COPY --from=builder /build/smtp-relay /smtp-relay
+COPY --from=builder /build/config.example.json /config.json
 
 EXPOSE 2525
 
-CMD ["/app/smtp-relay"]
+CMD ["/smtp-relay"]
