@@ -64,6 +64,7 @@ var remote Remote
 var config *Config
 
 func (bkd *RelayBackend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
+	log.Println("Session started")
 	return &Session{Anonymous: true}, nil
 }
 
@@ -73,8 +74,6 @@ type Session struct {
 }
 
 func (s *Session) SendMail() error {
-	fmt.Println("TO: ", s.RelayMessage.To, "Data: ", string(s.RelayMessage.Data))
-
 	c, err := smtp.Dial(remote.Config.Host + ":" + remote.Config.Port)
 	if err != nil {
 		return err
@@ -102,29 +101,29 @@ func (s *Session) SendMail() error {
 		}
 	}
 
+	log.Println("Mail from", s.RelayMessage.From, "to", s.RelayMessage.To)
 	err = c.SendMail(s.RelayMessage.From, s.RelayMessage.To, reader)
-
 	s.RelayMessage = Mail{}
 
 	if err != nil {
+		log.Println("Sending email failed: ", err.Error())
 		return err
 	}
 
+	log.Println("Sent successfully")
 	return nil
 }
 
 func (s *Session) AuthPlain(username, password string) error {
-	log.Println("authentication started")
 	val, ok := config.Server.Credentials[username]
 
 	if ok && val.Password == password {
-		log.Println("user", username, "authenticated successfully")
+		log.Println("User", username, "authenticated successfully")
 		s.Anonymous = false
 		s.RelayMessage.Credential = val
 		return nil
 	}
-
-	log.Println("invalid username/password", username, password)
+	log.Println("User", username, "authenticated failed")
 	return errors.New("invalid username or password")
 }
 
@@ -155,7 +154,6 @@ func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 }
 
 func (s *Session) Rcpt(to string) error {
-	log.Println("sending mail to:", to)
 	s.RelayMessage.To = append(s.RelayMessage.To, to)
 	return nil
 }
@@ -165,22 +163,22 @@ func (s *Session) Data(r io.Reader) error {
 		return err
 	} else {
 		s.RelayMessage.Data = b
-		log.Println("sending data: ", string(b))
 	}
 
 	err := s.SendMail()
 	if err != nil {
-		return errors.New("Sending email failed: " + err.Error())
+		return errors.New("sending email failed: " + err.Error())
 	}
 	return nil
 }
 
 func (s *Session) Reset() {
+	log.Println("resetting message, preparing for next")
 	s.RelayMessage = Mail{}
 }
 
 func (s *Session) Logout() error {
-	log.Println("session ended, resetting object")
+	log.Println("session ended, closing")
 	s = &Session{}
 	return nil
 }
