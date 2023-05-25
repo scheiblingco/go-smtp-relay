@@ -47,7 +47,7 @@ type Config struct {
 }
 
 // The Backend implements SMTP server methods.
-type Backend struct{}
+type RelayBackend struct{}
 
 type Mail struct {
 	Credential Credential
@@ -63,16 +63,18 @@ type Remote struct {
 var remote Remote
 var config *Config
 
-func (bkd *Backend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
-	return &Session{}, nil
+func (bkd *RelayBackend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
+	return &Session{Anonymous: true}, nil
 }
 
-// A Session is returned after EHLO.
 type Session struct {
-	FEmail Mail
+	Anonymous    bool
+	RelayMessage Mail
 }
 
 func (s *Session) SendMail() error {
+	fmt.Println("TO: ", s.RelayMessage.To, "Data: ", string(s.RelayMessage.Data))
+
 	c, err := smtp.Dial(remote.Config.Host + ":" + remote.Config.Port)
 	if err != nil {
 		return err
@@ -80,7 +82,7 @@ func (s *Session) SendMail() error {
 
 	defer c.Close()
 
-	reader := bytes.NewReader(s.FEmail.Data)
+	reader := bytes.NewReader(s.RelayMessage.Data)
 
 	if remote.Config.StartTls {
 		if err := c.StartTLS(nil); err != nil {
@@ -100,7 +102,9 @@ func (s *Session) SendMail() error {
 		}
 	}
 
-	err = c.SendMail(s.FEmail.From, s.FEmail.To, reader)
+	err = c.SendMail(s.RelayMessage.From, s.RelayMessage.To, reader)
+
+	s.RelayMessage = Mail{}
 
 	if err != nil {
 		return err
@@ -110,16 +114,18 @@ func (s *Session) SendMail() error {
 }
 
 func (s *Session) AuthPlain(username, password string) error {
-	log.Println("AuthPlain Called")
-
+	log.Println("authentication started")
 	val, ok := config.Server.Credentials[username]
-	if !ok || val.Password != password {
-		return errors.New("invalid username or password")
+
+	if ok && val.Password == password {
+		log.Println("user", username, "authenticated successfully")
+		s.Anonymous = false
+		s.RelayMessage.Credential = val
+		return nil
 	}
 
-	log.Println("User accepted")
-	s.FEmail.Credential = val
-	return nil
+	log.Println("invalid username/password", username, password)
+	return errors.New("invalid username or password")
 }
 
 func sliceContains(s []string, e string) bool {
@@ -132,21 +138,25 @@ func sliceContains(s []string, e string) bool {
 }
 
 func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
-	log.Println("Mail from:", from)
-	if len(s.FEmail.Credential.AllowedDomains) > 0 {
+	if s.Anonymous {
+		return errors.New("anonymous users are not allowed to send mail")
+	}
+
+	log.Println("sending mail from:", from)
+	if len(s.RelayMessage.Credential.AllowedDomains) > 0 {
 		splt := strings.Split(from, "@")
-		if !sliceContains(s.FEmail.Credential.AllowedDomains, splt[1]) {
-			allowstr := strings.Join(s.FEmail.Credential.AllowedDomains, ", ")
+		if !sliceContains(s.RelayMessage.Credential.AllowedDomains, splt[1]) {
+			allowstr := strings.Join(s.RelayMessage.Credential.AllowedDomains, ", ")
 			return fmt.Errorf("invalid sender domain: %s not allowed (%s)", splt[1], allowstr)
 		}
 	}
-	s.FEmail.From = from
+	s.RelayMessage.From = from
 	return nil
 }
 
 func (s *Session) Rcpt(to string) error {
-	log.Println("Rcpt to:", to)
-	s.FEmail.To = append(s.FEmail.To, to)
+	log.Println("sending mail to:", to)
+	s.RelayMessage.To = append(s.RelayMessage.To, to)
 	return nil
 }
 
@@ -154,8 +164,8 @@ func (s *Session) Data(r io.Reader) error {
 	if b, err := io.ReadAll(r); err != nil {
 		return err
 	} else {
-		s.FEmail.Data = b
-		log.Println("Data:", string(b))
+		s.RelayMessage.Data = b
+		log.Println("sending data: ", string(b))
 	}
 
 	err := s.SendMail()
@@ -166,11 +176,12 @@ func (s *Session) Data(r io.Reader) error {
 }
 
 func (s *Session) Reset() {
-	log.Println("Reset Called")
+	s.RelayMessage = Mail{}
 }
 
 func (s *Session) Logout() error {
-	log.Println("Logout Called")
+	log.Println("session ended, resetting object")
+	s = &Session{}
 	return nil
 }
 
@@ -187,7 +198,7 @@ func main() {
 	// Unmarshal config
 	json.Unmarshal(configFile, &config)
 
-	be := &Backend{}
+	be := &RelayBackend{}
 
 	remote = Remote{
 		Config: config.Remote,
@@ -202,6 +213,7 @@ func main() {
 	s.MaxMessageBytes = config.Server.MaxMessageSizeMb * 1024 * 1024
 	s.MaxRecipients = config.Server.MaxRecipients
 	s.AllowInsecureAuth = config.Server.AllowInsecure
+	s.AuthDisabled = false
 
 	log.Println("Starting server at", s.Addr)
 	if err := s.ListenAndServe(); err != nil {
