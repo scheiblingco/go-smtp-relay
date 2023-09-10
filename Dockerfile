@@ -13,6 +13,10 @@ FROM scratch
 COPY --from=builder /build/smtp-relay /smtp-relay
 COPY --from=builder /build/config.example.json /config.json
 
+RUN apk --no-cache add ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/cache/apk/* 
+
 EXPOSE 2525
 
 CMD ["/smtp-relay"]
