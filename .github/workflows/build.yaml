@@ -43,8 +43,8 @@ jobs:
           push: true
           tags: |
             ghcr.io/scheiblingco/smtp-relay:latest
-            ghcr.io/scheiblingco/smtp-relay:0.5.0
+            ghcr.io/scheiblingco/smtp-relay:0.5.1
             docker.io/scheibling/smtp-relay:latest
-            docker.io/scheibling/smtp-relay:0.5.0
+            docker.io/scheibling/smtp-relay:0.5.1
 
       

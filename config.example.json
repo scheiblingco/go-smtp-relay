@@ -2,6 +2,9 @@
     "server": {
         "host": "smtp.example.com",
         "listen": ":2525",
+        "startTls": true,
+        "tlsCert": "",
+        "tlsKey": "",
         "allowInsecure": true,
         "readTimeout": 10,
         "writeTimeout": 10,

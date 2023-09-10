@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +25,9 @@ type Credential struct {
 type ServerConfig struct {
 	Host             string                `json:"host" default:"localhost"`
 	Listen           string                `json:"listen" default:":2525"`
+	StartTls         bool                  `json:"startTls" default:"false"`
+	TLSCert          string                `json:"tlsCert" default:""`
+	TLSKey           string                `json:"tlsKey" default:""`
 	AllowInsecure    bool                  `json:"allowInsecure" default:"true"`
 	ReadTimeout      time.Duration         `json:"readTimeout" default:"10"`
 	WriteTimeout     time.Duration         `json:"writeTimeout" default:"10"`
@@ -204,6 +209,32 @@ func main() {
 
 	s := smtp.NewServer(be)
 
+	var tlsc *tls.Config
+
+	if config.Server.StartTls {
+		log.Println("StartTLS enabled, checking certificates...")
+
+		tlsCert, err := tls.LoadX509KeyPair(
+			config.Server.TLSCert,
+			config.Server.TLSKey,
+		)
+
+		certInfo, err := x509.ParseCertificate(tlsCert.Certificate[0])
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("Certificate hostnames: ", certInfo.DNSNames)
+
+		tlsc = &tls.Config{
+			ServerName: config.Server.Host,
+			NameToCertificate: map[string]*tls.Certificate{
+				config.Server.Host: &tlsCert,
+			},
+		}
+	}
+
 	s.Addr = config.Server.Listen
 	s.Domain = config.Server.Host
 	s.ReadTimeout = config.Server.ReadTimeout * time.Second
@@ -212,6 +243,7 @@ func main() {
 	s.MaxRecipients = config.Server.MaxRecipients
 	s.AllowInsecureAuth = config.Server.AllowInsecure
 	s.AuthDisabled = false
+	s.TLSConfig = tlsc
 
 	log.Println("Starting server at", s.Addr)
 	if err := s.ListenAndServe(); err != nil {
