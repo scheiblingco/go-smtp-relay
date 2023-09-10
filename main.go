@@ -37,13 +37,14 @@ type ServerConfig struct {
 }
 
 type RemoteConfig struct {
-	Host      string `json:"host" default:"localhost"`
-	Port      string `json:"port" default:"2525"`
-	StartTls  bool   `json:"startTls" default:"false"`
-	AuthPlain bool   `json:"authPlain" default:"false"`
-	AuthLogin bool   `json:"authLogin" default:"false"`
-	Username  string `json:"username" default:""`
-	Password  string `json:"password" default:""`
+	Host          string `json:"host" default:"localhost"`
+	Port          string `json:"port" default:"2525"`
+	StartTls      bool   `json:"startTls" default:"false"`
+	AuthPlain     bool   `json:"authPlain" default:"false"`
+	AuthLogin     bool   `json:"authLogin" default:"false"`
+	Username      string `json:"username" default:""`
+	Password      string `json:"password" default:""`
+	TlsSkipVerify bool   `json:"tlsSkipVerify" default:"false"`
 }
 
 type Config struct {
@@ -89,7 +90,14 @@ func (s *Session) SendMail() error {
 	reader := bytes.NewReader(s.RelayMessage.Data)
 
 	if remote.Config.StartTls {
-		if err := c.StartTLS(nil); err != nil {
+		var tlsc *tls.Config
+		if remote.Config.TlsSkipVerify {
+			tlsc = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+
+		if err := c.StartTLS(tlsc); err != nil {
 			return err
 		}
 	}

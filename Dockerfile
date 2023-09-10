@@ -6,16 +6,17 @@ WORKDIR /build
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o smtp-relay .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o smtp-relay . \
+    && apk --no-cache add ca-certificates \
+    && update-ca-certificates
 
 FROM scratch
 
 COPY --from=builder /build/smtp-relay /smtp-relay
 COPY --from=builder /build/config.example.json /config.json
+COPY --from=builder /usr/local/share/ca-certificates /usr/local/share/ca-certificates
+COPY --from=builder /etc/ssl /etc/ssl
 
-RUN apk --no-cache add ca-certificates \
-    && update-ca-certificates \
-    && rm -rf /var/cache/apk/* 
 
 EXPOSE 2525
 
