@@ -237,6 +237,9 @@ func main() {
 
 		tlsc = &tls.Config{
 			ServerName: config.Server.Host,
+			Certificates: []tls.Certificate{
+				tlsCert,
+			},
 			NameToCertificate: map[string]*tls.Certificate{
 				config.Server.Host: &tlsCert,
 			},
