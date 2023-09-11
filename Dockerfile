@@ -19,5 +19,6 @@ COPY --from=builder /etc/ssl /etc/ssl
 
 
 EXPOSE 2525
+EXPOSE 4650
 
 CMD ["/smtp-relay"]
