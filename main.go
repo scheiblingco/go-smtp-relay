@@ -253,6 +253,19 @@ func main() {
 	s.MaxMessageBytes = config.Server.MaxMessageSizeMb * 1024 * 1024
 	s.MaxRecipients = config.Server.MaxRecipients
 	s.AllowInsecureAuth = config.Server.AllowInsecure
+
+	s.EnableAuth(sasl.Login,
+		func(conn *smtp.Conn) sasl.Server {
+			return sasl.NewLoginServer(func(username, password string) error {
+				sess := conn.Session()
+				if sess == nil {
+					panic("No session when AUTH is called")
+				}
+
+				return sess.AuthPlain(username, password)
+			})
+		},
+	)
 	s.AuthDisabled = false
 	s.TLSConfig = tlsc
 
