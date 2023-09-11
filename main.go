@@ -25,7 +25,9 @@ type Credential struct {
 type ServerConfig struct {
 	Host             string                `json:"host" default:"localhost"`
 	Listen           string                `json:"listen" default:":2525"`
-	StartTls         bool                  `json:"startTls" default:"false"`
+	StartTLS         bool                  `json:"startTls" default:"false"`
+	SMTPS            bool                  `json:"smtps" default:"false"`
+	ListenSMTPS      string                `json:"listenSmtps" default:":4650"`
 	TLSCert          string                `json:"tlsCert" default:""`
 	TLSKey           string                `json:"tlsKey" default:""`
 	AllowInsecure    bool                  `json:"allowInsecure" default:"true"`
@@ -71,7 +73,8 @@ var config *Config
 
 func (bkd *RelayBackend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
 	log.Println("Session started")
-	return &Session{Anonymous: true}, nil
+	return &Session{}, nil
+	// return &Session{Anonymous: true}, nil
 }
 
 type Session struct {
@@ -196,6 +199,20 @@ func (s *Session) Logout() error {
 	return nil
 }
 
+func Listen(s *smtp.Server) {
+	log.Println("Starting server at", s.Addr)
+	if err := s.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func ListemSmtps(tlss *smtp.Server) {
+	log.Println("Starting TLS server at ", tlss.Addr)
+	if err := tlss.ListenAndServeTLS(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	// Create config
 	config = &Config{}
@@ -215,12 +232,13 @@ func main() {
 		Config: config.Remote,
 	}
 
-	s := smtp.NewServer(be)
+	smtps := smtp.NewServer(be)
+	var smtpss *smtp.Server
 
 	var tlsc *tls.Config
 
-	if config.Server.StartTls {
-		log.Println("StartTLS enabled, checking certificates...")
+	if config.Server.SMTPS || config.Server.StartTLS {
+		log.Println("StartTLS/TLS enabled, checking certificates...")
 
 		tlsCert, err := tls.LoadX509KeyPair(
 			config.Server.TLSCert,
@@ -246,15 +264,17 @@ func main() {
 		}
 	}
 
-	s.Addr = config.Server.Listen
-	s.Domain = config.Server.Host
-	s.ReadTimeout = config.Server.ReadTimeout * time.Second
-	s.WriteTimeout = config.Server.WriteTimeout * time.Second
-	s.MaxMessageBytes = config.Server.MaxMessageSizeMb * 1024 * 1024
-	s.MaxRecipients = config.Server.MaxRecipients
-	s.AllowInsecureAuth = config.Server.AllowInsecure
+	smtps.Addr = config.Server.Listen
+	smtps.Domain = config.Server.Host
+	smtps.ReadTimeout = config.Server.ReadTimeout * time.Second
+	smtps.WriteTimeout = config.Server.WriteTimeout * time.Second
+	smtps.MaxMessageBytes = config.Server.MaxMessageSizeMb * 1024 * 1024
+	smtps.MaxRecipients = config.Server.MaxRecipients
+	smtps.AllowInsecureAuth = config.Server.AllowInsecure
+	smtps.AuthDisabled = false
+	smtps.TLSConfig = tlsc
 
-	s.EnableAuth(sasl.Login,
+	smtps.EnableAuth(sasl.Login,
 		func(conn *smtp.Conn) sasl.Server {
 			return sasl.NewLoginServer(func(username, password string) error {
 				sess := conn.Session()
@@ -266,11 +286,36 @@ func main() {
 			})
 		},
 	)
-	s.AuthDisabled = false
-	s.TLSConfig = tlsc
 
-	log.Println("Starting server at", s.Addr)
-	if err := s.ListenAndServe(); err != nil {
-		log.Fatal(err)
+	if config.Server.SMTPS {
+		smtpss = smtp.NewServer(be)
+		smtpss.Addr = config.Server.ListenSMTPS
+		smtpss.Domain = config.Server.Host
+		smtpss.ReadTimeout = config.Server.ReadTimeout * time.Second
+		smtpss.WriteTimeout = config.Server.WriteTimeout * time.Second
+		smtpss.MaxMessageBytes = config.Server.MaxMessageSizeMb * 1024 * 1024
+		smtpss.MaxRecipients = config.Server.MaxRecipients
+		smtpss.AllowInsecureAuth = config.Server.AllowInsecure
+		smtpss.AuthDisabled = false
+		smtpss.TLSConfig = tlsc
+
+		smtpss.EnableAuth(sasl.Login,
+			func(conn *smtp.Conn) sasl.Server {
+				return sasl.NewLoginServer(func(username, password string) error {
+					sess := conn.Session()
+					if sess == nil {
+						panic("No session when AUTH is called")
+					}
+
+					return sess.AuthPlain(username, password)
+				})
+			},
+		)
 	}
+
+	if config.Server.SMTPS {
+		go ListemSmtps(smtpss)
+	}
+
+	Listen(smtps)
 }
