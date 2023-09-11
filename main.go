@@ -73,8 +73,7 @@ var config *Config
 
 func (bkd *RelayBackend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
 	log.Println("Session started")
-	return &Session{}, nil
-	// return &Session{Anonymous: true}, nil
+	return &Session{Anonymous: true}, nil
 }
 
 type Session struct {
