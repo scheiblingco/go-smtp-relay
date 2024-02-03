@@ -83,7 +83,7 @@ type Session struct {
 }
 
 func (s *Session) SendMail() error {
-	c, err := smtp.Dial(remote.Config.Host + ":" + string(remote.Config.Port))
+	c, err := smtp.Dial(remote.Config.Host + ":" + fmt.Sprint(remote.Config.Port))
 	if err != nil {
 		return err
 	}
