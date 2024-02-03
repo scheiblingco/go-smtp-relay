@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -202,6 +203,7 @@ func Listen(s *smtp.Server) {
 	log.Println("Starting server at", s.Addr)
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -209,7 +211,15 @@ func ListemSmtps(tlss *smtp.Server) {
 	log.Println("Starting TLS server at ", tlss.Addr)
 	if err := tlss.ListenAndServeTLS(); err != nil {
 		log.Fatal(err)
+		panic(err)
 	}
+}
+
+func ListenHealthcheck() {
+	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte("OK"))
+	})) // nolint:errcheck
 }
 
 func main() {
@@ -243,6 +253,10 @@ func main() {
 			config.Server.TLSCert,
 			config.Server.TLSKey,
 		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		certInfo, err := x509.ParseCertificate(tlsCert.Certificate[0])
 
@@ -316,5 +330,7 @@ func main() {
 		go ListemSmtps(smtpss)
 	}
 
-	Listen(smtps)
+	go Listen(smtps)
+
+	ListenHealthcheck()
 }
