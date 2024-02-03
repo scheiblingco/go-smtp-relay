@@ -23,24 +23,23 @@ type Credential struct {
 }
 
 type ServerConfig struct {
-	Host             string                `json:"host" default:"localhost"`
-	Listen           string                `json:"listen" default:":2525"`
-	StartTLS         bool                  `json:"startTls" default:"false"`
-	SMTPS            bool                  `json:"smtps" default:"false"`
-	ListenSMTPS      string                `json:"listenSmtps" default:":4650"`
-	TLSCert          string                `json:"tlsCert" default:""`
-	TLSKey           string                `json:"tlsKey" default:""`
-	AllowInsecure    bool                  `json:"allowInsecure" default:"true"`
-	ReadTimeout      time.Duration         `json:"readTimeout" default:"10"`
-	WriteTimeout     time.Duration         `json:"writeTimeout" default:"10"`
-	MaxRecipients    int                   `json:"maxRecipients" default:"50"`
-	MaxMessageSizeMb int                   `json:"maxMessageSizeMb" default:"30"`
-	Credentials      map[string]Credential `json:"credentials"`
+	Host             string        `json:"host" default:"localhost"`
+	Listen           int           `json:"listen" default:"2525"`
+	StartTLS         bool          `json:"startTls" default:"false"`
+	SMTPS            bool          `json:"smtps" default:"false"`
+	ListenSMTPS      int           `json:"listenSmtps" default:"4650"`
+	TLSCert          string        `json:"tlsCert" default:""`
+	TLSKey           string        `json:"tlsKey" default:""`
+	AllowInsecure    bool          `json:"allowInsecure" default:"true"`
+	ReadTimeout      time.Duration `json:"readTimeout" default:"10"`
+	WriteTimeout     time.Duration `json:"writeTimeout" default:"10"`
+	MaxRecipients    int           `json:"maxRecipients" default:"50"`
+	MaxMessageSizeMb int           `json:"maxMessageSizeMb" default:"30"`
 }
 
 type RemoteConfig struct {
 	Host          string `json:"host" default:"localhost"`
-	Port          string `json:"port" default:"2525"`
+	Port          int    `json:"port" default:"2525"`
 	StartTls      bool   `json:"startTls" default:"false"`
 	AuthPlain     bool   `json:"authPlain" default:"false"`
 	AuthLogin     bool   `json:"authLogin" default:"false"`
@@ -50,8 +49,9 @@ type RemoteConfig struct {
 }
 
 type Config struct {
-	Server ServerConfig `json:"server"`
-	Remote RemoteConfig `json:"remote"`
+	Server      ServerConfig          `json:"server"`
+	Remote      RemoteConfig          `json:"remote"`
+	Credentials map[string]Credential `json:"credentials"`
 }
 
 // The Backend implements SMTP server methods.
@@ -82,7 +82,7 @@ type Session struct {
 }
 
 func (s *Session) SendMail() error {
-	c, err := smtp.Dial(remote.Config.Host + ":" + remote.Config.Port)
+	c, err := smtp.Dial(remote.Config.Host + ":" + string(remote.Config.Port))
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (s *Session) SendMail() error {
 }
 
 func (s *Session) AuthPlain(username, password string) error {
-	val, ok := config.Server.Credentials[username]
+	val, ok := config.Credentials[username]
 
 	if ok && val.Password == password {
 		log.Println("User", username, "authenticated successfully")
@@ -263,7 +263,7 @@ func main() {
 		}
 	}
 
-	smtps.Addr = config.Server.Listen
+	smtps.Addr = ":" + fmt.Sprint(config.Server.Listen)
 	smtps.Domain = config.Server.Host
 	smtps.ReadTimeout = config.Server.ReadTimeout * time.Second
 	smtps.WriteTimeout = config.Server.WriteTimeout * time.Second
@@ -288,7 +288,7 @@ func main() {
 
 	if config.Server.SMTPS {
 		smtpss = smtp.NewServer(be)
-		smtpss.Addr = config.Server.ListenSMTPS
+		smtpss.Addr = ":" + fmt.Sprint(config.Server.ListenSMTPS)
 		smtpss.Domain = config.Server.Host
 		smtpss.ReadTimeout = config.Server.ReadTimeout * time.Second
 		smtpss.WriteTimeout = config.Server.WriteTimeout * time.Second
