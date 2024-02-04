@@ -368,25 +368,25 @@ func main() {
 		}
 		time.Sleep(time.Duration(10) * time.Second)
 
-		fileInfo, err := os.Stat("credentials.json")
+		// fileInfo, err := os.Stat("credentials.json")
+		// if err != nil {
+		// 	TERMINATED = err.Error()
+		// }
+
+		// if LASTMOD < fileInfo.ModTime().Unix() {
+		updatedCredentials := &map[string]Credential{}
+		credentialFile, err := os.ReadFile("credentials.json")
 		if err != nil {
 			TERMINATED = err.Error()
 		}
 
-		if LASTMOD < fileInfo.ModTime().Unix() {
-			updatedCredentials := &map[string]Credential{}
-			credentialFile, err := os.ReadFile("credentials.json")
-			if err != nil {
-				TERMINATED = err.Error()
-			}
+		json.Unmarshal(credentialFile, &updatedCredentials)
 
-			json.Unmarshal(credentialFile, &updatedCredentials)
+		config.Credentials = *updatedCredentials
+		// LASTMOD = fileInfo.ModTime().Unix()
 
-			config.Credentials = *updatedCredentials
-			LASTMOD = fileInfo.ModTime().Unix()
-
-			fmt.Println("Updated credentials")
-			fmt.Println(maps.Keys(*credentials))
-		}
+		fmt.Println("Updated credentials")
+		fmt.Println(maps.Keys(*credentials))
+		// }
 	}
 }
