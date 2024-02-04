@@ -222,7 +222,13 @@ func ListemSmtps(tlss *smtp.Server) {
 func ListenHealthcheck(cfg *Config) {
 	updateToken := os.Getenv("X_UPDATE_TOKEN")
 
-	handleAccountsFunc := func(w http.ResponseWriter, r *http.Request) {
+	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "accounts.json" && r.Method != "POST" {
+			w.WriteHeader(200)
+			w.Write([]byte("OK"))
+			return
+		}
+
 		if updateToken == "" {
 			w.WriteHeader(500)
 			w.Write([]byte("X_UPDATE_TOKEN not set"))
@@ -250,16 +256,7 @@ func ListenHealthcheck(cfg *Config) {
 		cfg.Credentials = updatedAccounts
 		fmt.Println("Updated accounts: ")
 		fmt.Println(cfg.Credentials)
-	}
 
-	http.HandleFunc("/accounts.json", handleAccountsFunc)
-
-	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/accounts.json" && r.Method == "POST" {
-			handleAccountsFunc(w, r)
-		}
-		w.WriteHeader(200)
-		w.Write([]byte("OK"))
 	})) // nolint:errcheck
 }
 
