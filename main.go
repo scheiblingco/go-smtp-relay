@@ -235,8 +235,9 @@ func ListenHealthcheck(cfg *Config) {
 			return
 		}
 
-		header := w.Header().Get("X-Update-Token")
-		if header != updateToken {
+		headerToken := r.Header.Get("X-Update-Token")
+
+		if headerToken == "" || headerToken != updateToken {
 			w.WriteHeader(403)
 			w.Write([]byte("Invalid token"))
 			return
