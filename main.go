@@ -16,7 +16,11 @@ import (
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
+	"golang.org/x/exp/maps"
 )
+
+var TERMINATED string
+var LASTMOD int64
 
 type Credential struct {
 	Password       string   `json:"password"`
@@ -131,6 +135,7 @@ func (s *Session) SendMail() error {
 }
 
 func (s *Session) AuthPlain(username, password string) error {
+	fmt.Println(config.Credentials)
 	val, ok := config.Credentials[username]
 
 	if ok && val.Password == password {
@@ -223,17 +228,39 @@ func ListenHealthcheck() {
 }
 
 func main() {
+	TERMINATED = ""
+
 	// Create config
 	config = &Config{}
+	credentials := &map[string]Credential{}
+
+	// Get last changed timestamp
+	credentialsInfo, err := os.Stat("credentials.json")
+	if err != nil {
+		log.Fatal(err)
+		TERMINATED = err.Error()
+	}
+
+	LASTMOD = credentialsInfo.ModTime().Unix()
 
 	// Read config.json into temp string
 	configFile, err := os.ReadFile("config.json")
 	if err != nil {
 		log.Fatal(err)
+		TERMINATED = err.Error()
+	}
+
+	credentialFile, err := os.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatal(err)
+		TERMINATED = err.Error()
 	}
 
 	// Unmarshal config
 	json.Unmarshal(configFile, &config)
+	json.Unmarshal(credentialFile, &credentials)
+
+	config.Credentials = *credentials
 
 	be := &RelayBackend{}
 
@@ -332,5 +359,34 @@ func main() {
 
 	go Listen(smtps)
 
-	ListenHealthcheck()
+	go ListenHealthcheck()
+
+	for {
+		if TERMINATED != "" {
+			log.Fatal(TERMINATED)
+			panic(fmt.Errorf(TERMINATED))
+		}
+		time.Sleep(time.Duration(10) * time.Second)
+
+		fileInfo, err := os.Stat("credentials.json")
+		if err != nil {
+			TERMINATED = err.Error()
+		}
+
+		if LASTMOD < fileInfo.ModTime().Unix() {
+			updatedCredentials := &map[string]Credential{}
+			credentialFile, err := os.ReadFile("credentials.json")
+			if err != nil {
+				TERMINATED = err.Error()
+			}
+
+			json.Unmarshal(credentialFile, &updatedCredentials)
+
+			config.Credentials = *updatedCredentials
+			LASTMOD = fileInfo.ModTime().Unix()
+
+			fmt.Println("Updated credentials")
+			fmt.Println(maps.Keys(*credentials))
+		}
+	}
 }
