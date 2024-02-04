@@ -16,7 +16,6 @@ import (
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
-	"golang.org/x/exp/maps"
 )
 
 var TERMINATED string
@@ -220,7 +219,39 @@ func ListemSmtps(tlss *smtp.Server) {
 	}
 }
 
-func ListenHealthcheck() {
+func ListenHealthcheck(cfg *Config) {
+	updateToken := os.Getenv("X_UPDATE_TOKEN")
+
+	http.HandleFunc("/accounts.json", func(w http.ResponseWriter, r *http.Request) {
+		if updateToken == "" {
+			w.WriteHeader(500)
+			w.Write([]byte("X_UPDATE_TOKEN not set"))
+			return
+		}
+
+		header := w.Header().Get("X-Update-Token")
+		if header != updateToken {
+			w.WriteHeader(403)
+			w.Write([]byte("Invalid token"))
+			return
+		}
+
+		var updatedAccounts map[string]Credential
+		err := json.NewDecoder(r.Body).Decode(&updatedAccounts)
+
+		if err != nil {
+			fmt.Println("Failed updating accounts")
+			fmt.Println(err.Error())
+			w.WriteHeader(500)
+			w.Write([]byte("Failed updating accounts"))
+			return
+		}
+
+		cfg.Credentials = updatedAccounts
+		fmt.Println("Updated accounts: ")
+		fmt.Println(cfg.Credentials)
+	})
+
 	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
@@ -359,34 +390,5 @@ func main() {
 
 	go Listen(smtps)
 
-	go ListenHealthcheck()
-
-	for {
-		if TERMINATED != "" {
-			log.Fatal(TERMINATED)
-			panic(fmt.Errorf(TERMINATED))
-		}
-		time.Sleep(time.Duration(10) * time.Second)
-
-		// fileInfo, err := os.Stat("credentials.json")
-		// if err != nil {
-		// 	TERMINATED = err.Error()
-		// }
-
-		// if LASTMOD < fileInfo.ModTime().Unix() {
-		updatedCredentials := &map[string]Credential{}
-		credentialFile, err := os.ReadFile("credentials.json")
-		if err != nil {
-			TERMINATED = err.Error()
-		}
-
-		json.Unmarshal(credentialFile, &updatedCredentials)
-
-		config.Credentials = *updatedCredentials
-		// LASTMOD = fileInfo.ModTime().Unix()
-
-		fmt.Println("Updated credentials")
-		fmt.Println(maps.Keys(*credentials))
-		// }
-	}
+	ListenHealthcheck(config)
 }
