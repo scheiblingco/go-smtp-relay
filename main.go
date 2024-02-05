@@ -16,10 +16,10 @@ import (
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
+	"golang.org/x/exp/maps"
 )
 
 var TERMINATED string
-var LASTMOD int64
 
 type Credential struct {
 	Password       string   `json:"password"`
@@ -138,7 +138,7 @@ func (s *Session) AuthPlain(username, password string) error {
 	val, ok := config.Credentials[username]
 
 	if ok && val.Password == password {
-		log.Println("User", username, "authenticated successfully")
+		log.Println(username, "authenticated successfully")
 		s.Anonymous = false
 		s.RelayMessage.Credential = val
 		return nil
@@ -161,7 +161,7 @@ func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 		return errors.New("anonymous users are not allowed to send mail")
 	}
 
-	log.Println("sending mail from:", from)
+	// log.Println("sending mail from:", from)
 	if len(s.RelayMessage.Credential.AllowedDomains) > 0 {
 		splt := strings.Split(from, "@")
 		if !sliceContains(s.RelayMessage.Credential.AllowedDomains, splt[1]) {
@@ -193,12 +193,12 @@ func (s *Session) Data(r io.Reader) error {
 }
 
 func (s *Session) Reset() {
-	log.Println("resetting message, preparing for next")
+	// log.Println("resetting message, preparing for next")
 	s.RelayMessage = Mail{}
 }
 
 func (s *Session) Logout() error {
-	log.Println("session ended, closing")
+	// log.Println("session ended, closing")
 	s = &Session{}
 	return nil
 }
@@ -255,9 +255,7 @@ func ListenHealthcheck(cfg *Config) {
 		}
 
 		cfg.Credentials = updatedAccounts
-		fmt.Println("Updated accounts: ")
-		fmt.Println(cfg.Credentials)
-
+		fmt.Println("Updated accounts: ", maps.Keys(cfg.Credentials))
 	})) // nolint:errcheck
 }
 
@@ -267,15 +265,6 @@ func main() {
 	// Create config
 	config = &Config{}
 	credentials := &map[string]Credential{}
-
-	// Get last changed timestamp
-	credentialsInfo, err := os.Stat("credentials.json")
-	if err != nil {
-		log.Fatal(err)
-		TERMINATED = err.Error()
-	}
-
-	LASTMOD = credentialsInfo.ModTime().Unix()
 
 	// Read config.json into temp string
 	configFile, err := os.ReadFile("config.json")

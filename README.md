@@ -4,7 +4,7 @@ A minimal SMTP-SMTP Relay written in Go. The main purpose is to have a local rel
 
 ## Usage
 ### Go
-Compile the go code (e.g. ```go build -o smtp-relay main.go```) and run the binary
+Compile the go code (e.g. ```go build -o smtp-relay main.go```) and run the binary or use the kubernetes operator (docs coming soon...)
 
 ### Docker
 There are docker images avaiable on GHCR and Docker Hub
@@ -12,6 +12,10 @@ There are docker images avaiable on GHCR and Docker Hub
 - ghcr.io/scheiblingco/smtp-relay:latest
 
 ### Configuration
+
+OUT OF DATE: Needs update.
+
+
 ```json
 {
     "server": {
