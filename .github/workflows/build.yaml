@@ -9,6 +9,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # mandatory for making github releases
+      packages: write # mandatory for publishing to ghcr.io
     steps:
       - 
         name: Checkout
@@ -43,8 +46,8 @@ jobs:
           push: true
           tags: |
             ghcr.io/scheiblingco/smtp-relay:latest
-            ghcr.io/scheiblingco/smtp-relay:0.8.1
+            ghcr.io/scheiblingco/smtp-relay:0.8.10
             docker.io/scheibling/smtp-relay:latest
-            docker.io/scheibling/smtp-relay:0.8.1
+            docker.io/scheibling/smtp-relay:0.8.10
 
       
