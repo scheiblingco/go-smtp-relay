@@ -75,8 +75,9 @@ type Remote struct {
 var remote Remote
 var config *Config
 
-func (bkd *RelayBackend) NewSession(_ *smtp.Conn) (smtp.Session, error) {
+func (bkd *RelayBackend) NewSession(sc *smtp.Conn) (smtp.Session, error) {
 	log.Println("Session started")
+	fmt.Println(sc.Hostname())
 	return &Session{Anonymous: true}, nil
 }
 
@@ -144,7 +145,7 @@ func (s *Session) AuthPlain(username, password string) error {
 		return nil
 	}
 	log.Println("User", username, "authenticated failed")
-	return errors.New("invalid username or password")
+	return errors.New("invalid connection parameters (UPX)")
 }
 
 func sliceContains(s []string, e string) bool {
